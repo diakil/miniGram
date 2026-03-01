@@ -3,47 +3,42 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { loginUser } from '@/utils/api'; 
-// 1. Import useRouter
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // 2. Inisialisasi router
   const router = useRouter();
 
- const handleLogin = async (e) => {
-  e.preventDefault();
-  
-  try {
-    const res = await loginUser(email, password);
-    console.log("Full API Response:", res); 
-
+  const handleLogin = async (e) => {
+    e.preventDefault();
     
-    if (res.status === "OK" && res.data) {
-      localStorage.setItem('token', res.data.token);
-      alert("Login Berhasil!");
-      router.push('/');
-    } else {
+    try {
+      const res = await loginUser(email, password);
       
-      alert(res.message || "Login gagal, periksa email/password/API KEY");
-    }
-  } catch (err) {
-    console.error("Login Error:", err);
-    alert("Terjadi kesalahan koneksi ke server");
-  }
-};
-
-  return (
-    <div className="min-h-screen bg-[#f6f7f8] flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-[350px] space-y-3">
+      if (res.status === "OK" || res.code === "200" || res.token) {
+        localStorage.setItem('token', res.token || res.data?.token);
         
-        {/* Box Utama */}
+        alert("Login Berhasil!");
+        
+        router.push('/'); 
+      } else {
+        alert(res.message || "Login gagal, periksa kembali data kamu");
+      }
+    } catch (err) {
+      console.error("Login Error:", err);
+      alert("Terjadi kesalahan koneksi ke server");
+    }
+  };
+
+  
+  return (
+    <div className="min-h-screen bg-[#f6f7f8] flex items-center justify-center p-4 font-sans text-black">
+      <div className="w-full max-w-[350px] space-y-3">
         <div className="bg-white border border-slate-200 p-8 flex flex-col items-center shadow-sm">
           <h1 className="text-3xl font-bold text-blue-600 mb-8 tracking-tighter italic">Minigram</h1>
           
-          <form onSubmit={handleLogin} className="w-full space-y-2">
+          <form onSubmit={handleLogin} className="w-full space-y-2 text-black">
             <input
               type="email"
               placeholder="Email"
@@ -75,14 +70,13 @@ export default function LoginPage() {
           </div>
 
           <button className="text-[#385185] text-sm font-bold flex items-center gap-2 hover:opacity-70 transition-opacity">
-            <span className="text-lg">facebook</span> Log in with Facebook
+            Log in with Facebook
           </button>
           
           <p className="text-xs text-[#385185] mt-4 cursor-pointer hover:underline">Forgot password?</p>
         </div>
 
-        {/* Box Sign Up */}
-        <div className="bg-white border border-slate-200 p-6 text-center shadow-sm">
+        <div className="bg-white border border-slate-200 p-6 text-center shadow-sm text-black">
           <p className="text-sm">
             Don't have an account? <Link href="/signup" className="text-blue-500 font-bold hover:underline">Sign up</Link>
           </p>
