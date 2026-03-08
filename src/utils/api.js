@@ -2,7 +2,6 @@ const API_URL = 'https://photo-sharing-api-bootcamp.do.dibimbing.id';
 const API_KEY = 'c7b411cc-0e7c-4ad1-aa3f-822b00e7734b';
 
 // --- Fungsi untuk Login ---
-
 export const loginUser = async (email, password) => {
   const response = await fetch(`${API_URL}/api/v1/login`, {
     method: 'POST',
@@ -173,13 +172,40 @@ export const likePost = async (postId) => {
 export const unlikePost = async (postId) => {
   const token = localStorage.getItem('token');
   const response = await fetch(`${API_URL}/api/v1/unlike`, {
-    method: 'POST', // Sesuaikan jika API menggunakan DELETE
+    method: 'POST', 
     headers: {
       'Content-Type': 'application/json',
       'apiKey': API_KEY,
       'Authorization': `Bearer ${token}`
     },
     body: JSON.stringify({ postId: postId })
+  });
+  return response.json();
+};
+
+// --- Fungsi untuk Comment ---
+export const createComment = async (data) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_URL}/api/v1/create-comment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apiKey': API_KEY,
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data) // { postId, comment }
+  });
+  return response.json();
+};
+
+export const deleteComment = async (commentId) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_URL}/api/v1/delete-comment/${commentId}`, {
+    method: 'DELETE',
+    headers: {
+      'apiKey': API_KEY,
+      'Authorization': `Bearer ${token}`
+    }
   });
   return response.json();
 };

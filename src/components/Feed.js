@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { likePost, unlikePost } from '@/utils/api';
+import { likePost, unlikePost, createComment, deleteComment } from '@/utils/api';
 
 const INITIAL_POSTS = [
   {
@@ -28,12 +28,15 @@ const INITIAL_POSTS = [
 
 export default function Feed() {
   const [posts, setPosts] = useState(INITIAL_POSTS);
-  const [loadingStates, setLoadingStates] = useState({}); 
+  const [loadingStates, setLoadingStates] = useState({});
+  const [commentInputs, setCommentInputs] = useState({}); 
+  const [isSubmittingComment, setIsSubmittingComment] = useState({});
+
 
   const handleToggleLike = async (postId, currentIsLiked) => {
     if (loadingStates[postId]) return;
 
-    // 1. OPTIMISTIC UPDATE (Update UI dulu supaya terasa instan)
+    // 1. OPTIMISTIC UPDATE 
     setPosts(prevPosts => prevPosts.map(p => {
       if (p.id === postId) {
         return {
@@ -55,7 +58,7 @@ export default function Feed() {
         await likePost(postId);
       }
     } catch (err) {
-      // 3. ROLLBACK (Jika API gagal, kembalikan ke state semula)
+      // 3. ROLLBACK JIKA ERROR 
       console.error("Gagal update like:", err);
       setPosts(prevPosts => prevPosts.map(p => {
         if (p.id === postId) {
@@ -70,6 +73,55 @@ export default function Feed() {
       alert("Terjadi masalah saat nge-like postingan.");
     } finally {
       setLoadingStates(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const handleAddComment = async (postId) => {
+    const commentText = commentInputs[postId];
+    if (!commentText?.trim()) return;
+
+    setIsSubmittingComment(prev => ({ ...prev, [postId]: true }));
+    try {
+      const res = await createComment({ postId, comment: commentText });
+      
+      if (res && res.data) {
+        // Update posts lokal dengan komentar baru
+        setPosts(prevPosts => prevPosts.map(p => {
+          if (p.id === postId) {
+            return {
+              ...p,
+              comments: [...(p.comments || []), res.data] 
+            };
+          }
+          return p;
+        }));
+      
+        setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+      }
+    } catch (err) {
+      alert("Gagal mengirim komentar");
+    } finally {
+      setIsSubmittingComment(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    if (!confirm("Hapus komentar ini?")) return;
+
+    try {
+      await deleteComment(commentId);
+     
+      setPosts(prevPosts => prevPosts.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            comments: p.comments.filter(c => c.id !== commentId)
+          };
+        }
+        return p;
+      }));
+    } catch (err) {
+      alert("Gagal menghapus komentar");
     }
   };
 
@@ -142,6 +194,46 @@ export default function Feed() {
               <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide pt-1">
                 {post.time}
               </p>
+            </div>
+
+            {/* --- DISPLAY KOMENTAR --- */}
+            {post.comments?.length > 0 && (
+              <div className="mt-4 space-y-2 max-h-32 overflow-y-auto pt-2 border-t border-slate-50">
+                {post.comments.map((comment) => (
+                  <div key={comment.id} className="group flex justify-between items-start text-sm">
+                    <p className="text-slate-700">
+                      <span className="font-bold mr-2 text-black">{comment.user?.username || 'user'}</span>
+                      {comment.comment}
+                    </p>
+                    {/* Tombol Delete hanya muncul jika itu komentar milik kita/sesuai kebijakan API */}
+                    <button 
+                      onClick={() => handleDeleteComment(post.id, comment.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity text-[10px]"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* --- INPUT KOMENTAR --- */}
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-3">
+              <input 
+                type="text"
+                placeholder="Tambahkan komentar..."
+                className="flex-1 text-sm outline-none bg-transparent text-black"
+                value={commentInputs[post.id] || ""}
+                onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+              />
+              <button 
+                onClick={() => handleAddComment(post.id)}
+                disabled={isSubmittingComment[post.id] || !commentInputs[post.id]?.trim()}
+                className="text-[#137fec] font-bold text-sm disabled:opacity-30"
+              >
+                {isSubmittingComment[post.id] ? "..." : "Post"}
+              </button>
             </div>
 
           </div>
