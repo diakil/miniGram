@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { logoutUser, getMyPosts, getLoggedUser, deletePost, updatePost } from '@/utils/api';
+import { logoutUser, getMyPosts, getLoggedUser, deletePost, updatePost, likePost, unlikePost } from '@/utils/api';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editCaption, setEditCaption] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
 
   // --- STATE PAGINATION ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,7 +26,7 @@ export default function ProfilePage() {
   const openModal = (post) => {
     setSelectedPost(post);
     setEditCaption(post.caption || "");
-    setIsEditing(false); // Reset mode edit tiap buka modal
+    setIsEditing(false); 
   };
 
   const handleUpdate = async () => {
@@ -36,7 +37,7 @@ export default function ProfilePage() {
     // KIRIM KEDUANYA: caption baru DAN imageUrl lama
     const res = await updatePost(selectedPost.id, { 
       caption: editCaption,
-      imageUrl: selectedPost.imageUrl // Tambahkan ini agar tidak kena BAD_REQUEST
+      imageUrl: selectedPost.imageUrl 
     });
 
     if (res) {
@@ -63,7 +64,7 @@ useEffect(() => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-        // Load User (Hanya sekali saja atau setiap page load)
+        // Load User 
         const resUser = await getLoggedUser();
         if (resUser && resUser.data) setUser(resUser.data);
         
@@ -98,7 +99,7 @@ useEffect(() => {
       try {
         await deletePost(postId);
         setPosts(posts.filter(p => p.id !== postId));
-        setSelectedPost(null); // Tutup modal setelah delete
+        setSelectedPost(null); 
         if (posts.length === 1 && currentPage > 1) {
           handlePageChange(currentPage - 1);
         }
@@ -112,7 +113,7 @@ useEffect(() => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
       fetchPosts(newPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll ke atas saat ganti page
+      window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
   };
 
@@ -129,7 +130,45 @@ useEffect(() => {
     }
   };
 
-  // Perbaikan Error Empty String: Cek apakah user ada sebelum render image
+
+const handleToggleLike = async (postId) => {
+  if (isLiking) return;
+  const isCurrentlyLiked = selectedPost.isLiked; 
+
+  setIsLiking(true);
+  try {
+    // Panggil API sesuai status saat ini
+    const res = isCurrentlyLiked ? await unlikePost(postId) : await likePost(postId);
+    
+    if (res) {
+      const newLikeStatus = !isCurrentlyLiked;
+      const adjustment = newLikeStatus ? 1 : -1;
+
+      // 1. Update list posts utama
+      setPosts(prevPosts => prevPosts.map(p => 
+        p.id === postId ? { 
+          ...p, 
+          totalLikes: Math.max(0, (p.totalLikes || 0) + adjustment),
+          isLiked: newLikeStatus 
+        } : p
+      ));
+
+      // 2. Update selectedPost (Modal)
+      setSelectedPost(prev => ({
+        ...prev,
+        totalLikes: Math.max(0, (prev.totalLikes || 0) + adjustment),
+        isLiked: newLikeStatus
+      }));
+    }
+  } catch (err) {
+    console.error("Gagal mengubah status like:", err);
+  } finally {
+    setIsLiking(false);
+  }
+};
+
+  
+  // Perbaikan Error Empty String
   const profileImage = user?.profilePictureUrl || "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1677509740.jpg";
 
   return (
@@ -239,6 +278,32 @@ useEffect(() => {
                     {selectedPost.caption || "No caption."}
                   </p>
                 )}
+              </div>
+
+              {/* Bagian Like di dalam Modal */}
+              <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => handleToggleLike(selectedPost.id)}
+                    disabled={isLiking}
+                    className={`hover:scale-110 transition-transform active:scale-90 ${isLiking ? 'opacity-50' : 'opacity-100'}`}
+                  >
+              {/* SVG dinamis berdasarkan status selectedPost.isLiked */}
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-8 w-8 transition-colors" 
+                fill={selectedPost.isLiked ? "currentColor" : "none"} 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+                strokeWidth={selectedPost.isLiked ? "0" : "2"}
+                style={{ color: selectedPost.isLiked ? '#ef4444' : '#64748b' }}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+              </svg>
+                    </button>
+                <span className="font-bold text-sm text-black">{selectedPost.totalLikes || 0} Likes</span>
+              </div>
+              {}
               </div>
 
               {/* ACTION BUTTONS */}

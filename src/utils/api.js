@@ -43,9 +43,7 @@ export const logoutUser = async () => {
 };
 
 
-// --- Fungsi untuk Create Post ---
-
-// 1. Fungsi untuk upload file gambar ke server 
+// --- Fungsi untuk Create Post --- 
 export const uploadImage = async (formData) => {
   const token = localStorage.getItem('token');
   const response = await fetch(`${API_URL}/api/v1/upload-image`, {
@@ -69,7 +67,7 @@ export const updatePost = async (postId, data) => {
   console.log("Updating post:", postId, "with data:", data);
 
   const response = await fetch(`${API_URL}/api/v1/update-post/${postId}`, {
-    method: 'POST', // <-- COBA GANTI KE 'PUT' JIKA POST GAGAL
+    method: 'POST', 
     headers: {
       'Content-Type': 'application/json',
       'apiKey': API_KEY,
@@ -134,12 +132,12 @@ export const getLoggedUser = async () => {
 export const getMyPosts = async (size = 10, page = 1) => {
   const token = localStorage.getItem('token');
   
-  // 1. Kita ambil dulu data user kita untuk dapat ID-nya
+  // 1. Kita ambil dulu data user untuk dapat ID-nya
   const userRes = await getLoggedUser();
   const userId = userRes.data.id; 
 
-  // 2. Tembak alamat yang BENAR sesuai Postman kamu
-  // Perhatikan: /api/v1/users-post/ (tanpa 's' di kata post)
+  
+  // Perhatikan: /api/v1/users-post/ 
   const response = await fetch(`${API_URL}/api/v1/users-post/${userId}?size=${size}&page=${page}`, { 
     method: 'GET',
     headers: {
@@ -153,5 +151,35 @@ export const getMyPosts = async (size = 10, page = 1) => {
     return { data: { posts: [] } };
   }
 
+  return response.json();
+};
+
+
+// --- Fungsi untuk memanggil route like dan unlike post ---
+export const likePost = async (postId) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_URL}/api/v1/like`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apiKey': API_KEY,
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ postId: postId }) 
+  });
+  return response.json();
+};
+
+export const unlikePost = async (postId) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_URL}/api/v1/unlike`, {
+    method: 'POST', // Sesuaikan jika API menggunakan DELETE
+    headers: {
+      'Content-Type': 'application/json',
+      'apiKey': API_KEY,
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ postId: postId })
+  });
   return response.json();
 };

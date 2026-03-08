@@ -49,8 +49,8 @@ export default function Sidebar() {
         <Link href="/profile" className="flex items-center gap-3 hover:bg-slate-50 p-2 rounded-lg transition">
           <div className="w-9 h-9 rounded-full bg-slate-200" />
           <div>
-            <p className="text-sm font-semibold text-slate-900">Julian Rossi</p>
-            <p className="text-xs text-slate-500">@jrossi</p>
+            <p className="text-sm font-semibold text-slate-900">Miftah Farhan</p>
+            <p className="text-xs text-slate-500">@miftahfarhan</p>
           </div>
         </Link>
       </div>
