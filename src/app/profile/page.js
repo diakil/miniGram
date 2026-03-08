@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [editCaption, setEditCaption] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   // --- STATE PAGINATION ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,7 +146,7 @@ const handleToggleLike = async (postId) => {
       const newLikeStatus = !isCurrentlyLiked;
       const adjustment = newLikeStatus ? 1 : -1;
 
-      // 1. Update list posts utama
+      
       setPosts(prevPosts => prevPosts.map(p => 
         p.id === postId ? { 
           ...p, 
@@ -153,7 +155,7 @@ const handleToggleLike = async (postId) => {
         } : p
       ));
 
-      // 2. Update selectedPost (Modal)
+      
       setSelectedPost(prev => ({
         ...prev,
         totalLikes: Math.max(0, (prev.totalLikes || 0) + adjustment),
@@ -167,6 +169,39 @@ const handleToggleLike = async (postId) => {
   }
 };
 
+
+  const handleAddComment = async () => {
+  if (!commentText.trim()) return;
+  setIsSubmittingComment(true);
+  try {
+    const res = await createComment(selectedPost.id, commentText);
+    if (res && res.data) {
+      
+      setSelectedPost(prev => ({
+        ...prev,
+        comments: [...(prev.comments || []), res.data]
+      }));
+      setCommentText(""); 
+    }
+  } catch (err) {
+    alert("Gagal menambahkan komentar");
+  } finally {
+    setIsSubmittingComment(false);
+  }
+};
+
+const handleDeleteComment = async (commentId) => {
+  if (!confirm("Hapus komentar ini?")) return;
+  try {
+    await deleteComment(commentId);
+    setSelectedPost(prev => ({
+      ...prev,
+      comments: prev.comments.filter(c => c.id !== commentId)
+    }));
+  } catch (err) {
+    alert("Gagal menghapus komentar");
+  }
+};
   
   // Perbaikan Error Empty String
   const profileImage = user?.profilePictureUrl || "https://www.shutterstock.com/image-vector/default-avatar-profile-icon-social-600nw-1677509740.jpg";
@@ -229,7 +264,7 @@ const handleToggleLike = async (postId) => {
             <TabButton label="TAGGED" />
           </div>
         </div>
-<div className="grid grid-cols-3 gap-1 md:gap-8">
+          <div className="grid grid-cols-3 gap-1 md:gap-8">
           {posts.map((post) => (
             <div key={post.id} onClick={() => openModal(post)}
               className="relative aspect-square group overflow-hidden bg-slate-200 rounded-lg cursor-pointer"
@@ -253,7 +288,7 @@ const handleToggleLike = async (postId) => {
 
             {/* Kanan: Info & Form */}
             <div className="md:w-2/5 flex flex-col bg-white">
-              <div className="p-4 border-b flex items-center justify-between">
+              <div className="p-4 flex-1 overflow-y-auto space-y-4">
                 <div className="flex items-center gap-3">
                   <img src={profileImage} className="w-8 h-8 rounded-full border" />
                   <span className="font-bold text-sm text-black">{user?.username}</span>

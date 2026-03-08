@@ -184,16 +184,12 @@ export const unlikePost = async (postId) => {
 };
 
 // --- Fungsi untuk Comment ---
-export const createComment = async (data) => {
+export const createComment = async (postId, comment) => {
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_URL}/api/v1/create-comment`, {
+  const response = await fetch(`${BASE_URL}/api/v1/create-comment`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apiKey': API_KEY,
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(data) // { postId, comment }
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ postId, comment })
   });
   return response.json();
 };
