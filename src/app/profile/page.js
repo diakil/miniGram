@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { logoutUser, getMyPosts, getLoggedUser, deletePost, updatePost, likePost, unlikePost } from '@/utils/api';
+import { logoutUser, getMyPosts, getLoggedUser, deletePost, updatePost, likePost, unlikePost, createComment } from '@/utils/api';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -26,9 +26,13 @@ export default function ProfilePage() {
   const pageSize = 9;
 
   const openModal = (post) => {
-    setSelectedPost(post);
-    setEditCaption(post.caption || "");
-    setIsEditing(false); 
+    const postWithComments = {
+    ...post,
+    comments: post.comments || [] 
+  };
+  setSelectedPost(postWithComments);
+  setEditCaption(post.caption || "");
+  setIsEditing(false); 
   };
 
   const handleUpdate = async () => {
@@ -80,6 +84,8 @@ useEffect(() => {
     };
     loadData();
   }, []);
+
+  
 
   const fetchPosts = async (page) => {
     setIsLoading(true);
@@ -170,21 +176,42 @@ const handleToggleLike = async (postId) => {
 };
 
 
-  const handleAddComment = async () => {
+ const handleAddComment = async () => {
   if (!commentText.trim()) return;
   setIsSubmittingComment(true);
+
   try {
     const res = await createComment(selectedPost.id, commentText);
-    if (res && res.data) {
-      
+
+    // Walaupun API tidak ada GET, respon dari POST biasanya mengembalikan data yang baru dibuat
+    // Jika respon sukses (status 200/201), kita paksa update UI
+    if (res) {
+      const newComment = {
+        id: res.data?.id || Date.now(), // Pakai ID dari server atau temporary ID
+        comment: commentText,
+        user: {
+          username: user?.username || "Me" // Pakai data user yang sedang login
+        }
+      };
+
+      // Update state modal agar langsung muncul
       setSelectedPost(prev => ({
         ...prev,
-        comments: [...(prev.comments || []), res.data]
+        comments: [...(prev.comments || []), newComment]
       }));
-      setCommentText(""); 
+
+      // Update daftar posts utama agar kalau modal ditutup-buka lagi, data tetap ada (selama tidak refresh)
+      setPosts(prevPosts => prevPosts.map(p => 
+        p.id === selectedPost.id 
+          ? { ...p, comments: [...(p.comments || []), newComment] }
+          : p
+      ));
+
+      setCommentText(""); // Reset input
     }
   } catch (err) {
-    alert("Gagal menambahkan komentar");
+    console.error("Gagal tambah komentar:", err);
+    alert("Komentar gagal diposting");
   } finally {
     setIsSubmittingComment(false);
   }
@@ -269,6 +296,7 @@ const handleDeleteComment = async (commentId) => {
             <div key={post.id} onClick={() => openModal(post)}
               className="relative aspect-square group overflow-hidden bg-slate-200 rounded-lg cursor-pointer"
             >
+
               <img src={post.imageUrl} className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold">
                 ❤️ {post.totalLikes || 0}
@@ -278,108 +306,163 @@ const handleDeleteComment = async (commentId) => {
         </div>
       </main>
       {selectedPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-white max-w-4xl w-full max-h-[90vh] rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl">
-            
-            {/* Kiri: Gambar */}
-            <div className="md:w-3/5 bg-black flex items-center justify-center">
-              <img src={selectedPost.imageUrl} className="max-w-full max-h-full object-contain" />
-            </div>
+  <div 
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+    onClick={() => { setSelectedPost(null); setIsEditing(false); }}
+  >
+    {/* Tombol Close Global */}
+    <button className="absolute top-6 right-6 text-white text-3xl hover:opacity-70">✕</button>
 
-            {/* Kanan: Info & Form */}
-            <div className="md:w-2/5 flex flex-col bg-white">
-              <div className="p-4 flex-1 overflow-y-auto space-y-4">
-                <div className="flex items-center gap-3">
-                  <img src={profileImage} className="w-8 h-8 rounded-full border" />
-                  <span className="font-bold text-sm text-black">{user?.username}</span>
-                </div>
-                <button onClick={() => setSelectedPost(null)} className="text-slate-400 hover:text-black">✕</button>
-              </div>
+    <div 
+      className="bg-white max-w-4xl w-full max-h-[90vh] rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl relative"
+      onClick={(e) => e.stopPropagation()} 
+    >
+      
+      {/* BAGIAN KIRI: GAMBAR */}
+      <div className="md:w-3/5 bg-black flex items-center justify-center">
+        <img src={selectedPost.imageUrl} className="max-w-full max-h-full object-contain" alt="Post content" />
+      </div>
 
-              <div className="p-4 flex-1 overflow-y-auto">
-                {isEditing ? (
-                  <div className="space-y-3">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Edit Caption</label>
-                    <textarea 
-                      value={editCaption}
-                      onChange={(e) => setEditCaption(e.target.value)}
-                      className="w-full p-3 border rounded-xl text-sm focus:ring-2 focus:ring-[#137fec] outline-none min-h-[120px] text-black"
-                      placeholder="Tulis caption baru..."
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-800">
-                    <span className="font-bold mr-2 text-black">{user?.username}</span>
-                    {selectedPost.caption || "No caption."}
-                  </p>
-                )}
-              </div>
-
-              {/* Bagian Like di dalam Modal */}
-              <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={() => handleToggleLike(selectedPost.id)}
-                    disabled={isLiking}
-                    className={`hover:scale-110 transition-transform active:scale-90 ${isLiking ? 'opacity-50' : 'opacity-100'}`}
-                  >
-              {/* SVG dinamis berdasarkan status selectedPost.isLiked */}
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-8 w-8 transition-colors" 
-                fill={selectedPost.isLiked ? "currentColor" : "none"} 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-                strokeWidth={selectedPost.isLiked ? "0" : "2"}
-                style={{ color: selectedPost.isLiked ? '#ef4444' : '#64748b' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+      {/* BAGIAN KANAN: KONTEN & INTERAKSI */}
+      <div className="md:w-2/5 flex flex-col bg-white h-[500px] md:h-auto">
+        
+        {/* 1. HEADER: User & Triple Dots */}
+        <div className="p-4 border-b flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={profileImage} className="w-8 h-8 rounded-full border object-cover" alt="avatar" />
+            <span className="font-bold text-sm text-black">{user?.username}</span>
+          </div>
+          
+          {/* TRIPLE DOTS MENU */}
+          <div className="relative group">
+            <button className="p-2 hover:bg-slate-100 rounded-full transition-colors text-black">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3m5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3"/>
               </svg>
-                    </button>
-                <span className="font-bold text-sm text-black">{selectedPost.totalLikes || 0} Likes</span>
-              </div>
-              {}
-              </div>
-
-              {/* ACTION BUTTONS */}
-              <div className="p-4 bg-slate-50 border-t space-y-2">
-                {isEditing ? (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handleUpdate}
-                      disabled={isUpdating}
-                      className="flex-1 bg-[#137fec] text-white py-2 rounded-lg font-bold text-sm disabled:opacity-50"
-                    >
-                      {isUpdating ? "Saving..." : "Save Changes"}
-                    </button>
-                    <button 
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 border rounded-lg font-bold text-sm text-slate-600"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setIsEditing(true)}
-                      className="flex-1 bg-white border border-slate-200 text-slate-700 py-2 rounded-lg font-bold text-sm hover:bg-slate-100 flex items-center justify-center gap-2"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(selectedPost.id)}
-                      className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg font-bold text-sm hover:bg-red-100 flex items-center justify-center gap-2"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                )}
-              </div>
+            </button>
+            
+            {/* Dropdown Content (Muncul saat Hover Group) */}
+            <div className="absolute right-0 top-full hidden group-hover:block w-40 bg-white border border-slate-100 shadow-xl rounded-xl z-10 overflow-hidden">
+              <button 
+                onClick={() => setIsEditing(true)} 
+                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                ✏️ Edit Caption
+              </button>
+              <button 
+                onClick={() => handleDelete(selectedPost.id)} 
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-semibold transition-colors border-t border-slate-50"
+              >
+                🗑️ Delete Post
+              </button>
             </div>
           </div>
-        </div>  
-      )}
+        </div>
+
+        {/* 2. AREA KOMENTAR (Scrollable) */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Section Caption */}
+          <div className="flex gap-3">
+            <img src={profileImage} className="w-8 h-8 rounded-full border flex-shrink-0 object-cover" alt="avatar" />
+            <div className="text-sm">
+              {isEditing ? (
+                <div className="space-y-2">
+                  <textarea 
+                    value={editCaption}
+                    onChange={(e) => setEditCaption(e.target.value)}
+                    className="w-full p-2 border rounded-lg text-black focus:ring-1 focus:ring-blue-500 outline-none bg-slate-50"
+                    rows={3}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={handleUpdate} className="text-xs font-bold text-blue-600 hover:underline disabled:opacity-50">
+                      {isUpdating ? "Saving..." : "Save"}
+                    </button>
+                    <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-slate-400">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-800 leading-tight">
+                  <span className="font-bold mr-2 text-black">{user?.username}</span>
+                  {selectedPost.caption || "No caption."}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* List Komentar */}
+          <div className="space-y-4">
+            {selectedPost.comments && selectedPost.comments.length > 0 ? (
+              selectedPost.comments.map((c) => (
+                <div key={c.id} className="flex gap-3 group">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-800 leading-tight">
+                      <span className="font-bold mr-2 text-black">{c.user?.username || 'user'}</span>
+                      {c.comment}
+                    </p>
+                    <button 
+                      onClick={() => handleDeleteComment(c.id)}
+                      className="text-[10px] text-red-400 opacity-0 group-hover:opacity-100 transition-opacity mt-1"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-slate-400 text-xs py-10 italic">No comments yet. Be the first!</p>
+            )}
+          </div>
+        </div>
+
+        {/* 3. FOOTER: Like & Input */}
+        <div className="p-4 border-t border-slate-100 bg-white">
+          <div className="flex items-center gap-4 mb-3">
+            <button 
+              onClick={() => handleToggleLike(selectedPost.id)} 
+              className={`hover:scale-110 transition-transform ${isLiking ? 'opacity-50' : ''}`}
+            >
+              <svg 
+                className="h-7 w-7" 
+                fill={selectedPost.isLiked ? "#ef4444" : "none"} 
+                viewBox="0 0 24 24" 
+                stroke={selectedPost.isLiked ? "#ef4444" : "#262626"}
+                strokeWidth="2"
+              >
+                <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+            <span className="font-bold text-sm text-black">{selectedPost.totalLikes || 0} Likes</span>
+          </div>
+
+          {/* Form Comment */}
+          <div className="flex items-center gap-2 border-t pt-3">
+            <input 
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Add a comment..."
+              className="flex-1 text-sm border-none focus:ring-0 p-0 text-black placeholder:text-slate-400 bg-transparent"
+              onKeyDown={(e) => {
+                if(e.key === 'Enter' && !isSubmittingComment && commentText.trim()) handleAddComment();
+              }}
+            />
+            <button 
+              onClick={handleAddComment}
+              disabled={isSubmittingComment || !commentText.trim()}
+              className="text-blue-500 font-bold text-sm disabled:opacity-30 transition-opacity hover:text-blue-700"
+            >
+              {isSubmittingComment ? "..." : "Post"}
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

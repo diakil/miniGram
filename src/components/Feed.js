@@ -8,7 +8,7 @@ const INITIAL_POSTS = [
     id: 1,
     user: 'elena_visuals',
     image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=600',
-    totalLikes: 1248, 
+    totalLikes: 940, 
     isLiked: false,   
     caption: 'The silence of the peaks. A morning to remember in the high Alps.',
     time: '2 HOURS AGO',

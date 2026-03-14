@@ -186,11 +186,21 @@ export const unlikePost = async (postId) => {
 // --- Fungsi untuk Comment ---
 export const createComment = async (postId, comment) => {
   const token = localStorage.getItem('token');
-  const response = await fetch(`${BASE_URL}/api/v1/create-comment`, {
+  
+  // Ganti 'ISI_DENGAN_API_KEY_KAMU' dengan string API Key yang benar 
+  // atau ambil dari process.env jika ada
+  
+
+  const response = await fetch(`${API_URL}/api/v1/create-comment`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 
+      'Content-Type': 'application/json', 
+      'Authorization': `Bearer ${token}`,
+      'apiKey': API_KEY // <--- TAMBAHKAN BARIS INI
+    },
     body: JSON.stringify({ postId, comment })
   });
+  
   return response.json();
 };
 
